@@ -2,6 +2,7 @@ package;
 
 import haxe.Json;
 import openfl.utils.Assets;
+import flixel.graphics.FlxGraphic;
 
 using StringTools;
 
@@ -13,6 +14,7 @@ typedef IconMeta = {
 	// ?frameOrder:Array<String> // ["normal", "losing", "winning"]
 	// ?isAnimated:Bool,
 	?hasWinIcon:Bool,
+	?useLegacySystem:Bool
 }
 class HealthIcon extends FlxSprite
 {
@@ -57,34 +59,39 @@ class HealthIcon extends FlxSprite
 			var name:String = 'icons/' + char;
 			if(!Paths.fileExists('images/' + name + '.png', IMAGE)) name = 'icons/icon-' + char; //Older versions of psych engine's support
 			if(!Paths.fileExists('images/' + name + '.png', IMAGE)) name = 'icons/icon-face'; //Prevents crash from missing icon
-			var file:Dynamic = Paths.image(name);
+			var iconAsset:FlxGraphic = FlxG.bitmap.add(Paths.image(name));
 
-			if (file == null)
-				file == Paths.image('icons/icon-face');
+			if (iconAsset == null)
+				iconAsset == Paths.image('icons/icon-face');
 			else if (!Paths.fileExists('images/icons/icon-face.png', IMAGE)){
 				// throw "Don't delete the placeholder icon";
 				trace("Warning: could not find the placeholder icon, expect crashes!");
 			}
-			final iSize:Float = Math.round(file.width / file.height);
-			/*
-			loadGraphic(file, true, Math.floor(file.width / iSize), Math.floor(file.height));
-			initialWidth = width;
-			initialHeight = height;
-			iconOffsets[0] = (width - 150) / iSize;
-			iconOffsets[1] = (height - 150) / iSize;
+			// TODO: clean up this fucking mess
+			// yanderedev code
+			final iSize:Float = Math.round(iconAsset.width / iconAsset.height);
+			if (iconMeta?.useLegacySystem)
+			{
+				loadGraphic(iconAsset, true, Math.floor(iconAsset.width / iSize), Math.floor(iconAsset.height));
+				initialWidth = width;
+				initialHeight = height;
+				iconOffsets[0] = (width - 150) / iSize;
+				iconOffsets[1] = (height - 150) / iSize;
 
-			updateHitbox();
-			*/
-			if (file.width == 300) {
-				loadGraphic(file, true, Math.floor(file.width / 2), Math.floor(file.height));
+				updateHitbox();
+
+				animation.add(char, [for(i in 0...frames.frames.length) i], 0, false, isPlayer);
+			}
+			else if (iconAsset.width == 300) {
+				loadGraphic(iconAsset, true, Math.floor(iconAsset.width / 2), Math.floor(iconAsset.height));
 				iconOffsets[0] = (width - 150) / iSize;
 				iconOffsets[1] = (height - 150) / iSize;
 				initialWidth = width;
 				initialHeight = height;
 				updateHitbox();
 				animation.add(char, [0, 1], 0, false, isPlayer);
-			} else if (file.width == 450) {
-				loadGraphic(file, true, Math.floor(file.width / 3), Math.floor(file.height));
+			} else if (iconAsset.width == 450) {
+				loadGraphic(iconAsset, true, Math.floor(iconAsset.width / 3), Math.floor(iconAsset.height));
 				iconOffsets[0] = (width - 150) / iSize;
 				iconOffsets[1] = (height - 150) / iSize;
 				initialWidth = width;
@@ -109,18 +116,18 @@ class HealthIcon extends FlxSprite
 				animation.addByPrefix('winning', hasWinning ? 'winning' : 'normal', fps, loop, isPlayer);
 				playAnim('normal');
 			} else { // This is just an attempt for other icon support, will detect is less than 300 or more than 300. If 300 or less, only 2 icons, if more, 3 icons.
-				var num:Int = Std.int(Math.round(file.width / file.height));
-				if (file.width % file.height != 0 || num >= 4) {
-						// weird icon, maybe has padding?
-						num = 3; // fallback
+				var num:Int = Std.int(Math.round(iconAsset.width / iconAsset.height));
+				if (iconAsset.width % iconAsset.height != 0 || num >= 4) {
+					// weird icon, maybe has padding?
+					num = 3; // fallback
 				}
-				if (file.width < 300) {
+				if (iconAsset.width < 300) {
 					num = 2;
-				} else if (file.width >= 300) {
+				} else if (iconAsset.width >= 300) {
 					num = 3;
 				}
 
-				loadGraphic(file, true, Math.floor(file.width / num), Math.floor(file.height));
+				loadGraphic(iconAsset, true, Math.floor(iconAsset.width / num), Math.floor(iconAsset.height));
 				iconOffsets[0] = (width - 150) / iSize;
 				iconOffsets[1] = (height - 150) / iSize;
 				initialWidth = width;
@@ -147,6 +154,7 @@ class HealthIcon extends FlxSprite
 		}
 	}
 
+	// for animated icons
 	function checkAvailablePrefixes(xmlPath:String):Map<String, Bool> {
 		final result = new Map<String, Bool>();
 		result.set("normal", false);
@@ -194,7 +202,8 @@ class HealthIcon extends FlxSprite
 		var json:IconMeta = cast Json.parse(rawJson);
 		if (json.noAntialiasing == null) json.noAntialiasing = false;
 		if (json.fps == null) json.fps = 24;
-		if (json.hasWinIcon == null) json.hasWinIcon = true;
+		if (json.hasWinIcon == null) json.hasWinIcon = false;
+		if (json.useLegacySystem == null) json.useLegacySystem = false;
 		// if (json.frameOrder == null) json.frameOrder = ['normal', 'losing', 'winning'];
 		return json;
 	}
